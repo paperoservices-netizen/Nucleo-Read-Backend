@@ -15,11 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
@@ -28,7 +26,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run NucleoRead analysis
+      - name: Run analysis
         run: |
           python -m python-runner.nucleoread.run_job \
             "${{ github.event.inputs.fasta }}" \
@@ -38,11 +36,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-      
-          git status
-      
-          git add results/
-      
+
+          git add results/*.json results/*.png
           git commit -m "NucleoRead result ${{ github.event.inputs.job_id }}" || echo "Nothing to commit"
-      
           git push
