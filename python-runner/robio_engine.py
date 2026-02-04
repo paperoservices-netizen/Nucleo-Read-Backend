@@ -1,11 +1,11 @@
-import re, json
+import re
 import matplotlib.pyplot as plt
 import numpy as np
 
-START_CODON = "ATG"
-STOP_CODONS = {"TAA","TAG","TGA"}
+START_CODON="ATG"
+STOP_CODONS={"TAA","TAG","TGA"}
 
-GENETIC_CODE = {
+GENETIC_CODE={
  'TTT':'F','TTC':'F','TTA':'L','TTG':'L','CTT':'L','CTC':'L','CTA':'L','CTG':'L',
  'ATT':'I','ATC':'I','ATA':'I','ATG':'M','GTT':'V','GTC':'V','GTA':'V','GTG':'V',
  'TCT':'S','TCC':'S','TCA':'S','TCG':'S','CCT':'P','CCC':'P','CCA':'P','CCG':'P',
@@ -16,87 +16,76 @@ GENETIC_CODE = {
  'AGT':'S','AGC':'S','AGA':'R','AGG':'R','GGT':'G','GGC':'G','GGA':'G','GGG':'G'
 }
 
-RESTRICTION_ENZYMES = {
-    "EcoRI": "GAATTC", "BamHI": "GGATCC", "HindIII": "AAGCTT",
-    "NotI": "GCGGCCGC", "XhoI": "CTCGAG", "KpnI": "GGTACC",
-    "AluI": "AGCT", "HaeIII": "GGCC", "TaqI": "TCGA"
+RESTRICTION_ENZYMES={
+ "EcoRI":"GAATTC","BamHI":"GGATCC","HindIII":"AAGCTT","NotI":"GCGGCCGC",
+ "XhoI":"CTCGAG","KpnI":"GGTACC","AluI":"AGCT","HaeIII":"GGCC","TaqI":"TCGA"
 }
 
 def parse_fasta(text):
     lines=text.strip().splitlines()
-    if not lines or not lines[0].startswith(">"):
-        raise ValueError("FASTA header missing")
-    seq="".join(lines[1:]).upper().replace(" ","")
-    return seq
-
-def detect_type(seq):
-    return "RNA" if "U" in seq else "DNA"
-
-def complement(seq):
-    return seq.translate(str.maketrans("ATGC","TACG"))
-
-def reverse_complement(seq):
-    return complement(seq)[::-1]
+    seq="".join(l for l in lines if not l.startswith(">")).upper()
+    if not seq or not re.fullmatch("[ATUGCN]+",seq):
+        raise ValueError("Invalid FASTA")
+    return seq.replace("U","T")
 
 def find_orfs(seq):
-    seq=seq.replace("U","T")
-    best=None
+    orfs=[]
     for frame in range(3):
-        i=frame
-        while i<len(seq)-2:
-            if seq[i:i+3]=="ATG":
+        for i in range(frame,len(seq)-2,3):
+            if seq[i:i+3]==START_CODON:
                 for j in range(i+3,len(seq)-2,3):
                     if seq[j:j+3] in STOP_CODONS:
-                        length=j+3-i
-                        if not best or length>best["length"]:
-                            best={"frame":frame+1,"start":i,"end":j+3,"length":length}
+                        orfs.append((i,j+3))
                         break
-            i+=3
-    return best
+    return orfs
 
 def translate(seq):
-    seq=seq.replace("U","T")
-    p=""
-    for i in range(0,len(seq)-2,3):
-        p+=GENETIC_CODE.get(seq[i:i+3],"X")
-    return p
+    return "".join(GENETIC_CODE.get(seq[i:i+3],"X") for i in range(0,len(seq)-2,3))
 
-def primers(seq,n=20):
-    fwd=seq[:n]
-    rev=complement(seq[-n:])[::-1]
-    def tm(p):
-        gc=p.count("G")+p.count("C")
-        return round(64.9+41*(gc-16.4)/len(p),1)
-    return {"fwd":fwd,"rev":rev,"fwd_tm":tm(fwd),"rev_tm":tm(rev)}
+def plot_gc(seq,out):
+    window=50
+    vals=[(seq[i:i+window].count("G")+seq[i:i+window].count("C"))/window*100 for i in range(len(seq)-window)]
+    plt.figure(figsize=(8,3))
+    plt.plot(vals)
+    plt.savefig(out,dpi=150)
+    plt.close()
 
-def restriction_sites(seq):
-    out=[]
-    for name,site in RESTRICTION_ENZYMES.items():
-        pos=[m.start()+1 for m in re.finditer(f"(?={site})",seq)]
-        if pos:
-            out.append({"name":name,"positions":pos})
-    return out
+def draw_gel(length,cuts,out):
+    fragments=[length]
+    if cuts:
+        cuts=sorted(cuts)
+        fragments=[cuts[0]]+[cuts[i+1]-cuts[i] for i in range(len(cuts)-1)]+[length-cuts[-1]]
+    plt.figure(figsize=(4,6))
+    plt.bar([1]*len(fragments),fragments)
+    plt.savefig(out,dpi=150)
+    plt.close()
 
-def analyze_fasta(fasta):
-    seq=parse_fasta(fasta)
-    dna=seq.replace("U","T")
+def analyze_fasta(fasta,job):
+    dna=parse_fasta(fasta)
 
     gc=(dna.count("G")+dna.count("C"))/len(dna)*100
+    rna=dna.replace("T","U")
+    comp=dna.translate(str.maketrans("ATGC","TACG"))
+    rev=comp[::-1]
 
-    orf=find_orfs(dna)
-    coding=dna[orf["start"]:orf["end"]]
-    protein=translate(coding)
-    prim=primers(coding)
-    sites=restriction_sites(dna)
+    orfs=find_orfs(dna)
+    start,end=max(orfs,key=lambda x:x[1]-x[0])
+    protein=translate(dna[start:end])
+
+    cuts=[]
+    for enz,site in RESTRICTION_ENZYMES.items():
+        for m in re.finditer(site,dna):
+            cuts.append(m.start())
+
+    plot_gc(dna,f"python-runner/images/{job}_gc.png")
+    draw_gel(len(dna),cuts,f"python-runner/images/{job}_gel.png")
 
     return {
         "length":len(dna),
         "gc":round(gc,2),
-        "rna":dna.replace("T","U"),
-        "complement":complement(dna),
-        "reverse_complement":reverse_complement(dna),
-        "orf":[orf["start"],orf["end"]],
-        "protein":protein,
-        "primers":prim,
-        "restriction_sites":sites
+        "rna":rna,
+        "complement":comp,
+        "reverse_complement":rev,
+        "orf":[start,end],
+        "protein":protein
     }

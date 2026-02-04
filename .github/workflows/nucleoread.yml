@@ -1,69 +1,35 @@
-name: Nucleoread – Genomic Analysis Engine
+name: Nucleoread
 
 on:
   workflow_dispatch:
     inputs:
-      query:
-        description: "FASTA sequence (paste raw, multiline allowed)"
-        required: true
       job_id:
-        description: "Unique job ID"
         required: true
 
 jobs:
-  run-nucleoread:
+  run:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      # 2️⃣ Python
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
 
-      # 3️⃣ Dependencies
-      - name: Install deps
-        run: |
-          pip install -r requirements.txt
+    - run: |
+        pip install -r requirements.txt
 
-      # 4️⃣ Save FASTA safely (CRITICAL FIX)
-      - name: Write FASTA input
-        shell: bash
-        run: |
-          mkdir -p python-runner/input
-          echo "${{ github.event.inputs.query }}" > python-runner/input/${{ github.event.inputs.job_id }}.fasta
+    - name: Run job
+      run: |
+        python python-runner/run_job.py \
+        python-runner/input/${{ github.event.inputs.job_id }}.fasta \
+        ${{ github.event.inputs.job_id }}
 
-      # 5️⃣ Run Nucleoread
-      - name: Run Nucleoread
-        run: |
-          echo "🔬 Running Nucleoread job ${{ github.event.inputs.job_id }}"
-          python python-runner/run_job.py \
-            python-runner/input/${{ github.event.inputs.job_id }}.fasta \
-            ${{ github.event.inputs.job_id }}
-
-      # 6️⃣ Verify outputs
-      - name: Verify outputs
-        run: |
-          JSON="python-runner/results/${{ github.event.inputs.job_id }}.json"
-          GC="python-runner/images/${{ github.event.inputs.job_id }}_gc.png"
-          GEL="python-runner/images/${{ github.event.inputs.job_id }}_gel.png"
-
-          test -f "$JSON" || (echo "❌ Missing JSON" && exit 1)
-          test -f "$GC" || (echo "❌ Missing GC plot" && exit 1)
-          test -f "$GEL" || (echo "❌ Missing gel plot" && exit 1)
-
-          echo "✅ All outputs generated"
-
-      # 7️⃣ Upload artifacts (best practice)
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: nucleoread-${{ github.event.inputs.job_id }}
-          path: |
-            python-runner/results/${{ github.event.inputs.job_id }}.json
-            python-runner/images/${{ github.event.inputs.job_id }}_gc.png
-            python-runner/images/${{ github.event.inputs.job_id }}_gel.png
+    - name: Commit outputs
+      run: |
+        git config user.name github-actions
+        git config user.email actions@github.com
+        git add python-runner/results python-runner/images
+        git commit -m "Nucleoread ${{ github.event.inputs.job_id }}" || true
+        git push
