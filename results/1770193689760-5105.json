@@ -1,0 +1,15 @@
+{
+  "status": "success",
+  "sequence_type": "DNA",
+  "length": 239,
+  "gc_percent": 52.72,
+  "at_percent": 47.28,
+  "orfs_found": 3,
+  "longest_orf": {
+    "frame": 1,
+    "start": 150,
+    "end": 192,
+    "length": 42
+  },
+  "protein": "MWPLAVKRRSIRR*"
+}
