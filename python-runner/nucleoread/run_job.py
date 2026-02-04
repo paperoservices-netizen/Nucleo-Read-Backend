@@ -1,23 +1,25 @@
-import sys
-import json
+import sys, json, os
 from .analysis import run_full_analysis
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python -m python-runner.nucleoread.run_job <job_id>")
+    if len(sys.argv) < 3:
+        print("Usage: python -m python_runner.nucleoread.run_job <fasta_file> <job_id>")
         sys.exit(1)
 
-    job_id = sys.argv[1]
+    fasta_file = sys.argv[1]
+    job_id = sys.argv[2]
 
-    # Read FASTA from STDIN
-    fasta = sys.stdin.read()
+    with open(fasta_file, "r") as f:
+        fasta_text = f.read()
 
-    if not fasta.strip():
-        raise ValueError("FASTA input is empty (stdin)")
+    result = run_full_analysis(fasta_text)
 
-    result = run_full_analysis(fasta, job_id)
+    os.makedirs("results", exist_ok=True)
+    output_path = f"results/{job_id}.json"
+    with open(output_path, "w") as f:
+        json.dump(result, f, indent=4)
 
-    print(json.dumps(result, indent=2))
+    print(f"✅ Result saved to {output_path}")
 
 if __name__ == "__main__":
     main()

@@ -1,25 +1,25 @@
-name: NucleoRead Analysis Runner
+name: Nucleo-Read Analysis
 
 on:
   workflow_dispatch:
     inputs:
-      fasta:
-        description: "FASTA sequence"
+      fasta_file:
+        description: 'FASTA file path in repo'
         required: true
       job_id:
-        description: "Unique job ID"
+        description: 'Job ID'
         required: true
 
 jobs:
-  run-nucleoread:
+  analyze:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
@@ -28,15 +28,10 @@ jobs:
 
       - name: Run analysis
         run: |
-          echo "${{ github.event.inputs.fasta }}" | \
-          python -m python-runner.nucleoread.run_job \
-            "${{ github.event.inputs.job_id }}"
+          python -m python_runner.nucleoread.run_job ${{ github.event.inputs.fasta_file }} ${{ github.event.inputs.job_id }}
 
-      - name: Commit results
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-          git add results/*.json results/*.png
-          git commit -m "NucleoRead result ${{ github.event.inputs.job_id }}" || echo "Nothing to commit"
-          git push
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: results
+          path: results/
