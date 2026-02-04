@@ -1,22 +1,22 @@
-import sys, os, json
+import sys, json
 from robio import analyze
+from plots import gc_plot
+from gel import virtual_gel
 
-job_id = sys.argv[1]
+fasta=sys.argv[1]
+job=sys.argv[2]
 
-input_file = f"input/{job_id}.fasta"
+res=analyze(fasta,job)
 
-if not os.path.exists(input_file):
-    print("Input FASTA not found:", input_file)
-    exit(1)
+gc_plot(res["dna"],f"python-runner/results/{job}_gc.png")
 
-with open(input_file, "r") as f:
-    fasta = f.read()
+cuts=[]
+for k,v in res["enzymes"].items():
+    cuts+=v
 
-os.makedirs("python-runner/results", exist_ok=True)
+virtual_gel(cuts,res["length"],f"python-runner/results/{job}_gel.png")
 
-result = analyze(fasta, job_id)
+del res["dna"]
 
-with open(f"python-runner/results/{job_id}.json", "w") as f:
-    json.dump(result, f, indent=2)
-
-print("Nucleoread job complete")
+with open(f"python-runner/results/{job}.json","w") as f:
+    json.dump(res,f,indent=2)
