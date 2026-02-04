@@ -37,12 +37,12 @@ jobs:
       - name: Commit results
         run: |
           git config user.name "github-actions"
-          git config user.email "actions@github.com"
-
-          git add python-runner/results/
-          git commit -m "NucleoRead result for job ${{ github.event.inputs.job_id }}" || echo "No changes"
+          git config user.email "github-actions@github.com"
+      
+          git status
+      
+          git add results/
+      
+          git commit -m "NucleoRead result ${{ github.event.inputs.job_id }}" || echo "Nothing to commit"
+      
           git push
-
-      - name: Cleanup old results
-        run: |
-          find python-runner/results -type f -mtime +30 -delete
