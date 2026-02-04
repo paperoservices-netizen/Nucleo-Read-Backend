@@ -30,8 +30,8 @@ jobs:
 
       - name: Run NucleoRead analysis
         run: |
+          echo "${{ github.event.inputs.fasta }}" | \
           python -m python-runner.nucleoread.run_job \
-            "${{ github.event.inputs.fasta }}" \
             "${{ github.event.inputs.job_id }}"
 
       - name: Commit results
