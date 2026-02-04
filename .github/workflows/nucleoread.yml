@@ -32,11 +32,10 @@ jobs:
 
       # 4️⃣ Save FASTA safely (CRITICAL FIX)
       - name: Write FASTA input
+        shell: bash
         run: |
           mkdir -p python-runner/input
-          cat << 'EOF' > python-runner/input/${{ github.event.inputs.job_id }}.fasta
-${{ github.event.inputs.query }}
-EOF
+          echo "${{ github.event.inputs.query }}" > python-runner/input/${{ github.event.inputs.job_id }}.fasta
 
       # 5️⃣ Run Nucleoread
       - name: Run Nucleoread
