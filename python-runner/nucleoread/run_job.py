@@ -5,17 +5,17 @@ from .analysis import run_analysis
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python -m python-runner.nucleoread.run_job <fasta_file> <job_id>")
+        print(
+            "Usage: python -m python-runner.nucleoread.run_job "
+            "<fasta_string> <job_id>"
+        )
         sys.exit(1)
 
-    fasta_file = sys.argv[1]
+    fasta_text = sys.argv[1]
     job_id = sys.argv[2]
 
-    with open(fasta_file, "r") as f:
-        fasta = f.read()
-
     try:
-        result = run_analysis(fasta)
+        result = run_analysis(fasta_text)
     except Exception as e:
         result = {
             "status": "failed",
