@@ -1,18 +1,41 @@
 import re
-from .config import *
 
-def parse_fasta(text):
-    lines = text.strip().splitlines()
+START_CODON = "ATG"
+STOP_CODONS = {"TAA", "TAG", "TGA"}
+
+GENETIC_CODE = {
+    'TTT':'F','TTC':'F','TTA':'L','TTG':'L','CTT':'L','CTC':'L','CTA':'L','CTG':'L',
+    'ATT':'I','ATC':'I','ATA':'I','ATG':'M','GTT':'V','GTC':'V','GTA':'V','GTG':'V',
+    'TCT':'S','TCC':'S','TCA':'S','TCG':'S','CCT':'P','CCC':'P','CCA':'P','CCG':'P',
+    'ACT':'T','ACC':'T','ACA':'T','ACG':'T','GCT':'A','GCC':'A','GCA':'A','GCG':'A',
+    'TAT':'Y','TAC':'Y','TAA':'*','TAG':'*','CAT':'H','CAC':'H','CAA':'Q','CAG':'Q',
+    'AAT':'N','AAC':'N','AAA':'K','AAG':'K','GAT':'D','GAC':'D','GAA':'E','GAG':'E',
+    'TGT':'C','TGC':'C','TGA':'*','TGG':'W','CGT':'R','CGC':'R','CGA':'R','CGG':'R',
+    'AGT':'S','AGC':'S','AGA':'R','AGG':'R','GGT':'G','GGC':'G','GGA':'G','GGG':'G'
+}
+
+# ---------------- FASTA PARSER ----------------
+def parse_fasta(text: str) -> str:
+    lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
+
     if not lines or not lines[0].startswith(">"):
-        raise ValueError("FASTA header missing")
-    return "".join(lines[1:]).upper()
+        raise ValueError("Invalid FASTA: missing header")
 
-def detect_type(seq):
-    return "RNA" if "U" in seq else "DNA"
+    seq = "".join(lines[1:]).upper()
 
-def find_orfs(seq):
+    if not seq:
+        raise ValueError("Invalid FASTA: empty sequence")
+
+    if not re.fullmatch("[ATUGCN]+", seq):
+        raise ValueError("Invalid FASTA: illegal characters")
+
+    return seq
+
+# ---------------- ORF FINDER ----------------
+def find_orfs(seq: str):
     seq = seq.replace("U", "T")
     orfs = []
+
     for frame in range(3):
         i = frame
         while i <= len(seq) - 3:
@@ -29,52 +52,51 @@ def find_orfs(seq):
                 i += 3
             else:
                 i += 3
+
     return orfs
 
-def translate(seq):
+# ---------------- TRANSLATION ----------------
+def translate(seq: str) -> str:
     seq = seq.replace("U", "T")
     return "".join(
         GENETIC_CODE.get(seq[i:i+3], "X")
-        for i in range(0, len(seq)-2, 3)
+        for i in range(0, len(seq) - 2, 3)
     )
 
-def design_primers(seq, length=20):
-    if len(seq) < length * 2:
-        return {"forward": "N/A", "reverse": "N/A"}
-
-    fwd = seq[:length]
-    rev = seq[-length:].translate(str.maketrans("ATGC", "TACG"))[::-1]
-    return {"forward": fwd, "reverse": rev}
-
-def find_restriction_sites(seq):
-    sites = []
-    for name, pattern in RESTRICTION_ENZYMES.items():
-        hits = [m.start() + 1 for m in re.finditer(f'(?={pattern})', seq)]
-        if hits:
-            sites.append({"enzyme": name, "positions": hits})
-    return sites
-
-def run_analysis(fasta):
-    seq = parse_fasta(fasta)
+# ---------------- MAIN ANALYSIS ----------------
+def run_analysis(fasta_text: str) -> dict:
+    seq = parse_fasta(fasta_text)
     dna = seq.replace("U", "T")
 
-    orfs = find_orfs(dna)
-    best = max(orfs, key=lambda x: x["length"]) if orfs else None
+    length = len(dna)
+    gc_count = dna.count("G") + dna.count("C")
+    at_count = dna.count("A") + dna.count("T")
 
-    protein = ""
-    if best:
-        protein = translate(dna[best["start"]:best["end"]])
+    gc_percent = round((gc_count / length) * 100, 2) if length > 0 else 0.0
+
+    # ORFs (sense + antisense)
+    orfs = find_orfs(dna)
+
+    rev_comp = dna.translate(str.maketrans("ATGC", "TACG"))[::-1]
+    for o in find_orfs(rev_comp):
+        o["frame"] = -o["frame"]
+        orfs.append(o)
+
+    best_orf = max(orfs, key=lambda x: x["length"]) if orfs else None
+
+    protein = None
+    if best_orf:
+        target = rev_comp if best_orf["frame"] < 0 else dna
+        coding = target[best_orf["start"]:best_orf["end"]]
+        protein = translate(coding)
 
     return {
-        "sequence": {
-            "type": detect_type(seq),
-            "length": len(seq),
-            "gc_percent": round(
-                (dna.count("G") + dna.count("C")) / len(dna) * 100, 2
-            )
-        },
-        "orf": best,
-        "protein": protein,
-        "primers": design_primers(dna),
-        "restriction_sites": find_restriction_sites(dna)
+        "status": "success",
+        "sequence_type": "RNA" if "U" in seq else "DNA",
+        "length": length,
+        "gc_percent": gc_percent,
+        "at_percent": round((at_count / length) * 100, 2) if length > 0 else 0.0,
+        "orfs_found": len(orfs),
+        "longest_orf": best_orf,
+        "protein": protein
     }
