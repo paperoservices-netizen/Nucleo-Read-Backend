@@ -1,76 +1,64 @@
-import re, matplotlib.pyplot as plt
+import re
 
-START="ATG"
-STOP={"TAA","TAG","TGA"}
+def clean_fasta(fasta):
+    lines = fasta.splitlines()
+    seq = "".join([l.strip() for l in lines if not l.startswith(">")])
+    return seq.upper()
 
-GENETIC_CODE={
- 'TTT':'F','TTC':'F','TTA':'L','TTG':'L','CTT':'L','CTC':'L','CTA':'L','CTG':'L',
- 'ATT':'I','ATC':'I','ATA':'I','ATG':'M','GTT':'V','GTC':'V','GTA':'V','GTG':'V',
- 'TCT':'S','TCC':'S','TCA':'S','TCG':'S','CCT':'P','CCC':'P','CCA':'P','CCG':'P',
- 'ACT':'T','ACC':'T','ACA':'T','ACG':'T','GCT':'A','GCC':'A','GCA':'A','GCG':'A',
- 'TAT':'Y','TAC':'Y','TAA':'*','TAG':'*','CAT':'H','CAC':'H','CAA':'Q','CAG':'Q',
- 'AAT':'N','AAC':'N','AAA':'K','AAG':'K','GAT':'D','GAC':'D','GAA':'E','GAG':'E',
- 'TGT':'C','TGC':'C','TGA':'*','TGG':'W','CGT':'R','CGC':'R','CGA':'R','CGG':'R',
- 'AGT':'S','AGC':'S','AGA':'R','AGG':'R','GGT':'G','GGC':'G','GGA':'G','GGG':'G'
-}
+def dna_to_rna(dna):
+    return dna.replace("T","U")
 
-def parse_fasta(txt):
-    lines=[l.strip() for l in txt.strip().splitlines() if l.strip()]
-    if not lines or not lines[0].startswith(">"):
-        raise ValueError("Invalid FASTA header")
-    seq="".join(lines[1:]).upper()
-    if not seq:
-        raise ValueError("No sequence data")
-    if not re.fullmatch("[ATUGCN]+",seq):
-        raise ValueError("Invalid characters")
-    return seq
+def complement(dna):
+    return dna.translate(str.maketrans("ATCG","TAGC"))
+
+def reverse_complement(dna):
+    return complement(dna)[::-1]
+
+def gc_content(dna):
+    return round((dna.count("G")+dna.count("C"))/len(dna)*100,2)
 
 def find_orfs(seq):
-    out=[]
-    for f in range(3):
-        i=f
-        while i<len(seq)-2:
-            if seq[i:i+3]==START:
-                for j in range(i+3,len(seq)-2,3):
-                    if seq[j:j+3] in STOP:
-                        out.append({"frame":f+1,"start":i,"end":j+3,"length":j+3-i})
+    stops = ["TAA","TAG","TGA"]
+    orfs=[]
+    for frame in range(3):
+        for i in range(frame, len(seq)-2,3):
+            if seq[i:i+3]=="ATG":
+                for j in range(i,len(seq)-2,3):
+                    if seq[j:j+3] in stops:
+                        orfs.append((i,j+3))
                         break
-                i+=3
-            else:
-                i+=3
-    return out
+    return orfs
+
+codon_table = {
+ "TTT":"F","TTC":"F","TTA":"L","TTG":"L",
+ "CTT":"L","CTC":"L","CTA":"L","CTG":"L",
+ "ATG":"M","TAA":"*","TAG":"*","TGA":"*"
+}
 
 def translate(seq):
-    return "".join(GENETIC_CODE.get(seq[i:i+3],"X") for i in range(0,len(seq)-2,3))
-
-def gc_plot(seq,path):
-    w=50
-    vals=[(seq[i:i+w].count("G")+seq[i:i+w].count("C"))/w*100 for i in range(len(seq)-w)]
-    plt.plot(vals)
-    plt.savefig(path)
-    plt.close()
+    prot=""
+    for i in range(0,len(seq)-2,3):
+        prot+=codon_table.get(seq[i:i+3],"X")
+    return prot
 
 def analyze(fasta, job_id):
-    try:
-        dna=parse_fasta(fasta).replace("U","T")
-        orfs=find_orfs(dna)
-        best=max(orfs,key=lambda x:x["length"]) if orfs else None
+    dna=clean_fasta(fasta)
+    rna=dna_to_rna(dna)
 
-        gc=round((dna.count("G")+dna.count("C"))/len(dna)*100,2) if len(dna)>0 else 0
+    orfs=find_orfs(dna)
+    best = max(orfs, key=lambda x:x[1]-x[0]) if orfs else None
 
-        result={
-            "length":len(dna),
-            "gc":gc,
-            "orfs":orfs,
-            "best_orf":best
-        }
+    protein=""
+    if best:
+        protein = translate(dna[best[0]:best[1]])
 
-        if best:
-            coding=dna[best["start"]:best["end"]]
-            result["protein"]=translate(coding)
-            gc_plot(dna,f"python-runner/results/{job_id}_gc.png")
-
-        return result
-
-    except Exception as e:
-        return {"error": str(e)}
+    return {
+        "job_id": job_id,
+        "length": len(dna),
+        "gc": gc_content(dna),
+        "rna": rna,
+        "complement": complement(dna),
+        "reverse_complement": reverse_complement(dna),
+        "orf": best,
+        "protein": protein
+    }
