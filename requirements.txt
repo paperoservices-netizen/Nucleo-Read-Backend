@@ -1,4 +1,2 @@
-requests>=2.31.0
-numpy>=1.26.0
-biopython>=1.83
-matplotlib>=3.8.0
+matplotlib
+numpy
