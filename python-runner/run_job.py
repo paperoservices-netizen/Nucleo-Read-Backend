@@ -1,10 +1,10 @@
-import sys, json
+import sys, json, base64
 from robio import analyze
 from plots import gc_plot
 from gel import virtual_gel
 
-fasta=sys.argv[1]
-job=sys.argv[2]
+fasta = base64.b64decode(sys.argv[1]).decode()
+job   = sys.argv[2]
 
 res=analyze(fasta,job)
 
