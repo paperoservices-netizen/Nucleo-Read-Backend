@@ -1,11 +1,10 @@
 import matplotlib.pyplot as plt
 
-def gc_plot(dna,out):
-    w=20
-    vals=[(dna[i:i+w].count("G")+dna[i:i+w].count("C"))/w*100 for i in range(len(dna)-w)]
+def gc_plot(seq,out):
+    window=50
+    vals=[(seq[i:i+window].count("G")+seq[i:i+window].count("C"))/window*100
+          for i in range(len(seq)-window)]
+    plt.figure(figsize=(10,4))
     plt.plot(vals)
-    plt.title("GC Content")
-    plt.ylabel("%GC")
-    plt.xlabel("Position")
-    plt.savefig(out)
+    plt.savefig(out,dpi=150)
     plt.close()

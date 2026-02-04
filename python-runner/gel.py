@@ -1,17 +1,17 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
-def virtual_gel(cuts,length,out):
-    frags=[]
-    last=0
-    for c in sorted(cuts):
-        frags.append(c-last)
-        last=c
-    frags.append(length-last)
+def virtual_gel(length,cuts,out):
+    if not cuts:
+        frags=[length]
+    else:
+        cuts=sorted(cuts)
+        frags=[cuts[i+1]-cuts[i] for i in range(len(cuts)-1)]
+        frags.append(length-cuts[-1]+cuts[0])
 
-    y=range(len(frags))
-    plt.scatter(frags,y)
-    plt.yticks([])
-    plt.xlabel("Fragment size (bp)")
-    plt.title("Virtual Gel")
-    plt.savefig(out)
+    plt.figure(figsize=(5,8))
+    for f in frags:
+        plt.hlines(f,0.5,1)
+    plt.yscale("log")
+    plt.savefig(out,dpi=150)
     plt.close()
