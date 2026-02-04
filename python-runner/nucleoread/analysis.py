@@ -2,25 +2,22 @@ import re
 from .constants import *
 from .plots import gc_plot, virtual_gel
 
-def parse_fasta(text):
-    if not text:
-        raise ValueError("Empty FASTA input")
+import re
 
-    lines = text.strip().splitlines()
+def parse_fasta(fasta: str) -> str:
+    lines = fasta.strip().splitlines()
 
-    if not lines[0].startswith(">"):
-        raise ValueError("FASTA header missing (must start with >)")
+    if not lines or not lines[0].startswith(">"):
+        raise ValueError("Invalid FASTA: missing header")
 
-    # Join sequence lines and remove ALL whitespace
-    seq = "".join(lines[1:])
-    seq = re.sub(r"\s+", "", seq).upper()
+    # Join all non-header lines, strip spaces
+    seq = "".join(lines[1:]).replace(" ", "").upper()
 
     if not seq:
         raise ValueError("Invalid FASTA: empty sequence")
 
-    if not re.fullmatch(r"[ATUGCN]+", seq):
-        bad = sorted(set(re.sub(r"[ATUGCN]", "", seq)))
-        raise ValueError(f"Invalid FASTA characters found: {bad}")
+    if not re.fullmatch(r"[ACGTN]+", seq):
+        raise ValueError("Invalid FASTA characters")
 
     return seq
 
