@@ -32,12 +32,12 @@ jobs:
           pip install -r requirements.txt
 
       # 4️⃣ Run Nucleoread Engine
-      - name: Run Nucleoread job
+      - name: Run Nucleoread
         run: |
-          echo "Running Nucleoread job ${{ github.event.inputs.job_id }}"
           python python-runner/run_job.py \
-            "${{ github.event.inputs.query }}" \
-            "${{ github.event.inputs.job_id }}"
+          "${{ github.event.inputs.query }}" \
+          "${{ github.event.inputs.job_id }}"
+
 
       # 5️⃣ Verify outputs
       - name: Verify outputs
