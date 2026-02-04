@@ -1,28 +1,26 @@
-import sys,base64,json,os
+import sys
+import json
+import os
 from robio_engine import analyze_fasta
-from plots import gc_plot
-from gel import virtual_gel
 
-fasta=base64.b64decode(sys.argv[1]).decode()
-job=sys.argv[2]
+if len(sys.argv) < 3:
+    print("Usage: python run_job.py <fasta> <job_id>")
+    sys.exit(1)
 
-result=analyze_fasta(fasta)
+fasta = sys.argv[1]
+job_id = sys.argv[2]
 
-os.makedirs("python-runner/results",exist_ok=True)
-os.makedirs("python-runner/images",exist_ok=True)
+print(f"🔬 Processing job {job_id}")
 
-dna=fasta.splitlines()[1].replace("U","T")
+result = analyze_fasta(fasta)
 
-gc_plot(dna,f"python-runner/images/{job}_gc.png")
+os.makedirs("python-runner/results", exist_ok=True)
+out_file = f"python-runner/results/{job_id}.json"
 
-cuts=[]
-for s in result["restriction_sites"]:
-    cuts+=s["positions"]
+with open(out_file, "w") as f:
+    json.dump({
+        "job_id": job_id,
+        **result
+    }, f, indent=2)
 
-virtual_gel(len(dna),cuts,f"python-runner/images/{job}_gel.png")
-
-result["gc_plot"]=f"{job}_gc.png"
-result["gel_plot"]=f"{job}_gel.png"
-
-with open(f"python-runner/results/{job}.json","w") as f:
-    json.dump(result,f,indent=2)
+print(f"✅ Result written to {out_file}")
