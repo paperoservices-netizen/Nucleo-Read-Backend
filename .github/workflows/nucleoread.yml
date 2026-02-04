@@ -4,20 +4,25 @@ on:
   workflow_dispatch:
     inputs:
       fasta_file:
-        description: 'FASTA file path in repo'
+        description: 'Path to FASTA file in repo (e.g. samples/myseq.fasta)'
         required: true
       job_id:
-        description: 'Job ID'
+        description: 'Unique job ID'
         required: true
+
+permissions:
+  contents: write     # Required to commit back
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -26,12 +31,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run analysis
+      - name: Run NucleoRead analysis
         run: |
-          python -m python_runner.nucleoread.run_job ${{ github.event.inputs.fasta_file }} ${{ github.event.inputs.job_id }}
+          python -m python_runner.nucleoread.run_job \
+            "${{ github.event.inputs.fasta_file }}" \
+            "${{ github.event.inputs.job_id }}"
 
-      - name: Upload results
-        uses: actions/upload-artifact@v3
-        with:
-          name: results
-          path: results/
+      - name: Commit and push results
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add results/${{ github.event.inputs.job_id }}*
+          git commit -m "Results for job ${{ github.event.inputs.job_id }}" || echo "No files to commit"
+          git push
