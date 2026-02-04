@@ -1,154 +1,122 @@
-import os
-import json
-import math
-import matplotlib.pyplot as plt
+import re
+from .constants import *
+from .plots import gc_plot, virtual_gel
 
-DNA_COMPLEMENT = str.maketrans("ATGCatgc", "TACGtacg")
-
-
-def parse_fasta(fasta: str):
-    lines = [l.strip() for l in fasta.strip().splitlines() if l.strip()]
+def parse_fasta(text):
+    lines = text.strip().splitlines()
     if not lines or not lines[0].startswith(">"):
-        raise ValueError("Invalid FASTA: missing header")
-
-    seq = "".join(lines[1:]).upper()
-    if not seq:
-        raise ValueError("Invalid FASTA: empty sequence")
-
-    return lines[0][1:], seq
+        raise ValueError("FASTA header missing")
+    seq = "".join(lines[1:]).upper().replace(" ", "")
+    if not re.fullmatch("[ATUGCN]+", seq):
+        raise ValueError("Invalid FASTA characters")
+    return seq
 
 
-def core_stats(seq):
-    length = len(seq)
-    gc = seq.count("G") + seq.count("C")
-    at = seq.count("A") + seq.count("T")
-    ambiguous = length - (gc + at)
-
-    return {
-        "sequence_type": "DNA",
-        "length": length,
-        "gc_content": round(gc / length * 100, 2),
-        "at_content": round(at / length * 100, 2),
-        "ambiguous_bases": ambiguous,
-    }
-
-
-def transformations(seq):
-    rna = seq.replace("T", "U")
-    complement = seq.translate(DNA_COMPLEMENT)
-    rev_complement = complement[::-1]
-
-    return {
-        "dna_to_rna": rna,
-        "complement": complement,
-        "reverse_complement": rev_complement,
-    }
-
-
-def find_longest_orf(seq):
-    stops = {"TAA", "TAG", "TGA"}
-    longest = {"length": 0}
+def find_orfs(seq):
+    seq = seq.replace("U", "T")
+    orfs = []
 
     for frame in range(3):
         i = frame
-        while i < len(seq) - 2:
-            codon = seq[i : i + 3]
-            if codon == "ATG":
-                j = i
-                while j < len(seq) - 2:
-                    stop = seq[j : j + 3]
-                    if stop in stops:
-                        length = j + 3 - i
-                        if length > longest.get("length", 0):
-                            longest = {
-                                "frame": frame + 1,
-                                "start": i + 1,
-                                "end": j + 3,
-                                "length": length,
-                                "sequence": seq[i : j + 3],
-                            }
+        while i <= len(seq) - 3:
+            if seq[i:i+3] == START_CODON:
+                for j in range(i+3, len(seq)-2, 3):
+                    if seq[j:j+3] in STOP_CODONS:
+                        orfs.append({
+                            "frame": frame + 1,
+                            "start": i,
+                            "end": j + 3,
+                            "length": j + 3 - i
+                        })
                         break
-                    j += 3
-            i += 3
-    return longest
-
-
-CODON_TABLE = {
-    "ATA": "I", "ATC": "I", "ATT": "I", "ATG": "M",
-    "ACA": "T", "ACC": "T", "ACG": "T", "ACT": "T",
-    "AAC": "N", "AAT": "N", "AAA": "K", "AAG": "K",
-    "AGC": "S", "AGT": "S", "AGA": "R", "AGG": "R",
-    "CTA": "L", "CTC": "L", "CTG": "L", "CTT": "L",
-    "CCA": "P", "CCC": "P", "CCG": "P", "CCT": "P",
-    "CAC": "H", "CAT": "H", "CAA": "Q", "CAG": "Q",
-    "CGA": "R", "CGC": "R", "CGG": "R", "CGT": "R",
-    "GTA": "V", "GTC": "V", "GTG": "V", "GTT": "V",
-    "GCA": "A", "GCC": "A", "GCG": "A", "GCT": "A",
-    "GAC": "D", "GAT": "D", "GAA": "E", "GAG": "E",
-    "GGA": "G", "GGC": "G", "GGG": "G", "GGT": "G",
-    "TCA": "S", "TCC": "S", "TCG": "S", "TCT": "S",
-    "TTC": "F", "TTT": "F", "TTA": "L", "TTG": "L",
-    "TAC": "Y", "TAT": "Y", "TAA": "*", "TAG": "*",
-    "TGC": "C", "TGT": "C", "TGA": "*", "TGG": "W",
-}
+                i += 3
+            else:
+                i += 3
+    return orfs
 
 
 def translate(seq):
-    protein = ""
-    for i in range(0, len(seq) - 2, 3):
-        protein += CODON_TABLE.get(seq[i : i + 3], "X")
-    return protein
+    return "".join(GENETIC_CODE.get(seq[i:i+3], "X")
+                   for i in range(0, len(seq)-2, 3))
 
 
-def primer_design(seq):
-    fwd = seq[:20]
-    rev = seq[-20:].translate(DNA_COMPLEMENT)[::-1]
+def design_primers(seq, length=20):
+    fwd = seq[:length]
+    rev = seq[-length:].translate(str.maketrans("ATGC","TACG"))[::-1]
 
-    def tm(s):
-        return round(2 * (s.count("A") + s.count("T")) + 4 * (s.count("G") + s.count("C")), 1)
+    def tm(p):
+        gc = p.count("G") + p.count("C")
+        return round(64.9 + 41*(gc-16.4)/len(p), 1)
 
     return {
-        "forward_primer": {"sequence": fwd, "tm": tm(fwd)},
-        "reverse_primer": {"sequence": rev, "tm": tm(rev)},
+        "forward": fwd,
+        "reverse": rev,
+        "tm_forward": tm(fwd),
+        "tm_reverse": tm(rev)
     }
 
 
-def gc_plot(seq, job_id):
-    window = 20
-    values = []
-    for i in range(len(seq) - window + 1):
-        frag = seq[i : i + window]
-        values.append((frag.count("G") + frag.count("C")) / window * 100)
-
-    plt.figure()
-    plt.plot(values)
-    plt.xlabel("Window position")
-    plt.ylabel("GC %")
-    plt.title("GC Content Sliding Window")
-    path = f"results/{job_id}_gc.png"
-    plt.savefig(path)
-    plt.close()
-    return path
+def restriction_sites(seq):
+    hits = []
+    for name, site in RESTRICTION_ENZYMES.items():
+        pos = [m.start()+1 for m in re.finditer(f"(?={site})", seq)]
+        if pos:
+            hits.append({"enzyme": name, "site": site, "positions": pos})
+    return hits
 
 
 def run_full_analysis(fasta, job_id):
-    header, seq = parse_fasta(fasta)
+    seq = parse_fasta(fasta)
+    dna = seq.replace("U", "T")
 
-    core = core_stats(seq)
-    trans = transformations(seq)
-    orf = find_longest_orf(seq)
-    protein = translate(orf["sequence"]) if orf else ""
-    primers = primer_design(seq)
-    gc_img = gc_plot(seq, job_id)
+    gc = dna.count("G") + dna.count("C")
+    at = dna.count("A") + dna.count("T")
+    amb = dna.count("N")
+
+    comp = dna.translate(str.maketrans("ATGC","TACG"))
+    rev_comp = comp[::-1]
+
+    orfs = find_orfs(dna)
+    best = max(orfs, key=lambda x: x["length"]) if orfs else None
+
+    coding = protein = None
+    if best:
+        coding = dna[best["start"]:best["end"]]
+        protein = translate(coding)
+
+    primers = design_primers(coding) if coding else None
+    enzymes = restriction_sites(dna)
+    all_cuts = [p for e in enzymes for p in e["positions"]]
+
+    gc_img = gc_plot(dna, f"results/{job_id}_gc.png")
+    gel_img = virtual_gel(len(dna), all_cuts, f"results/{job_id}_gel.png")
 
     return {
-        "header": header,
-        "core_analysis": core,
-        "transformations": trans,
-        "longest_orf": orf,
-        "protein": protein,
+        "core_analysis": {
+            "sequence_type": "RNA" if "U" in seq else "DNA",
+            "length": len(seq),
+            "gc_percent": round(gc/len(seq)*100, 2),
+            "at_percent": round(at/len(seq)*100, 2),
+            "ambiguous_bases": amb
+        },
+        "transformations": {
+            "dna_to_rna": dna.replace("T","U"),
+            "complement": comp,
+            "reverse_complement": rev_comp
+        },
+        "orf_analysis": {
+            "total_orfs": len(orfs),
+            "longest_orf": best,
+            "coding_sequence": coding,
+            "protein": protein
+        },
         "primers": primers,
+        "restriction_analysis": {
+            "total_cuts": len(all_cuts),
+            "enzymes": enzymes
+        },
         "plots": {
-            "gc_content": gc_img
+            "gc_plot": f"{job_id}_gc.png",
+            "virtual_gel": f"{job_id}_gel.png"
         }
     }

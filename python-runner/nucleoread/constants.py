@@ -17,5 +17,9 @@ RESTRICTION_ENZYMES = {
     "BamHI": "GGATCC",
     "HindIII": "AAGCTT",
     "NotI": "GCGGCCGC",
-    "XhoI": "CTCGAG"
+    "XhoI": "CTCGAG",
+    "KpnI": "GGTACC",
+    "AluI": "AGCT",
+    "HaeIII": "GGCC",
+    "TaqI": "TCGA"
 }
