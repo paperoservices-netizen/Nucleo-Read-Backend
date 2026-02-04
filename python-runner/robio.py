@@ -15,19 +15,29 @@ GENETIC_CODE={
 }
 
 def parse_fasta(txt):
-    lines=txt.strip().splitlines()
-    if not lines[0].startswith(">"): raise ValueError("Invalid FASTA")
-    return "".join(lines[1:]).replace(" ","").upper()
+    lines=[l.strip() for l in txt.strip().splitlines() if l.strip()]
+    if not lines or not lines[0].startswith(">"):
+        raise ValueError("Invalid FASTA header")
+    seq="".join(lines[1:]).upper()
+    if not seq:
+        raise ValueError("No sequence data")
+    if not re.fullmatch("[ATUGCN]+",seq):
+        raise ValueError("Invalid characters")
+    return seq
 
 def find_orfs(seq):
     out=[]
     for f in range(3):
-        for i in range(f,len(seq)-2,3):
+        i=f
+        while i<len(seq)-2:
             if seq[i:i+3]==START:
                 for j in range(i+3,len(seq)-2,3):
                     if seq[j:j+3] in STOP:
                         out.append({"frame":f+1,"start":i,"end":j+3,"length":j+3-i})
                         break
+                i+=3
+            else:
+                i+=3
     return out
 
 def translate(seq):
@@ -40,21 +50,27 @@ def gc_plot(seq,path):
     plt.savefig(path)
     plt.close()
 
-def analyze(fasta,job_id):
-    dna=parse_fasta(fasta).replace("U","T")
-    orfs=find_orfs(dna)
-    best=max(orfs,key=lambda x:x["length"]) if orfs else None
+def analyze(fasta, job_id):
+    try:
+        dna=parse_fasta(fasta).replace("U","T")
+        orfs=find_orfs(dna)
+        best=max(orfs,key=lambda x:x["length"]) if orfs else None
 
-    result={
-        "length":len(dna),
-        "gc":round((dna.count("G")+dna.count("C"))/len(dna)*100,2),
-        "orfs":orfs,
-        "best_orf":best
-    }
+        gc=round((dna.count("G")+dna.count("C"))/len(dna)*100,2) if len(dna)>0 else 0
 
-    if best:
-        coding=dna[best["start"]:best["end"]]
-        result["protein"]=translate(coding)
-        gc_plot(dna,f"python-runner/results/{job_id}_gc.png")
+        result={
+            "length":len(dna),
+            "gc":gc,
+            "orfs":orfs,
+            "best_orf":best
+        }
 
-    return result
+        if best:
+            coding=dna[best["start"]:best["end"]]
+            result["protein"]=translate(coding)
+            gc_plot(dna,f"python-runner/results/{job_id}_gc.png")
+
+        return result
+
+    except Exception as e:
+        return {"error": str(e)}

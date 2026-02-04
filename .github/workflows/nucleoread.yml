@@ -3,8 +3,8 @@ name: Nucleoread Genome Analysis
 on:
   workflow_dispatch:
     inputs:
-      fasta:
-        description: "FASTA sequence"
+      fasta_b64:
+        description: "Base64 FASTA"
         required: true
       job_id:
         description: "Job ID"
@@ -21,13 +21,13 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install dependencies
+      - name: Install deps
         run: pip install matplotlib numpy
 
       - name: Run Nucleoread
         run: |
           python python-runner/run_job.py \
-            "${{ github.event.inputs.fasta }}" \
+            "${{ github.event.inputs.fasta_b64 }}" \
             "${{ github.event.inputs.job_id }}"
 
       - name: Commit results
@@ -35,5 +35,5 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add python-runner/results/
-          git commit -m "Nucleoread result ${{ github.event.inputs.job_id }}" || true
+          git commit -m "Nucleoread job ${{ github.event.inputs.job_id }}" || true
           git push
