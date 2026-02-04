@@ -3,13 +3,27 @@ from .constants import *
 from .plots import gc_plot, virtual_gel
 
 def parse_fasta(text):
+    if not text:
+        raise ValueError("Empty FASTA input")
+
     lines = text.strip().splitlines()
-    if not lines or not lines[0].startswith(">"):
-        raise ValueError("FASTA header missing")
-    seq = "".join(lines[1:]).upper().replace(" ", "")
-    if not re.fullmatch("[ATUGCN]+", seq):
-        raise ValueError("Invalid FASTA characters")
+
+    if not lines[0].startswith(">"):
+        raise ValueError("FASTA header missing (must start with >)")
+
+    # Join sequence lines and remove ALL whitespace
+    seq = "".join(lines[1:])
+    seq = re.sub(r"\s+", "", seq).upper()
+
+    if not seq:
+        raise ValueError("Invalid FASTA: empty sequence")
+
+    if not re.fullmatch(r"[ATUGCN]+", seq):
+        bad = sorted(set(re.sub(r"[ATUGCN]", "", seq)))
+        raise ValueError(f"Invalid FASTA characters found: {bad}")
+
     return seq
+
 
 
 def find_orfs(seq):
