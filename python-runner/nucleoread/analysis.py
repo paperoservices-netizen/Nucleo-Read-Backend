@@ -16,18 +16,33 @@ GENETIC_CODE = {
 
 # ---------------- FASTA PARSER ----------------
 def parse_fasta(text: str) -> str:
-    lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
+    if not text:
+        raise ValueError("Invalid FASTA: empty input")
 
-    if not lines or not lines[0].startswith(">"):
-        raise ValueError("Invalid FASTA: missing header")
+    text = text.strip()
 
-    seq = "".join(lines[1:]).upper()
+    if not text.startswith(">"):
+        raise ValueError("Invalid FASTA: header missing")
+
+    # Remove header (first line starting with >)
+    lines = text.splitlines()
+
+    # Handle case: >header ATGCATGC (same line)
+    if len(lines) == 1:
+        parts = lines[0].split(maxsplit=1)
+        if len(parts) < 2:
+            raise ValueError("Invalid FASTA: empty sequence")
+        seq = parts[1]
+    else:
+        seq = "".join(lines[1:])
+
+    seq = seq.replace(" ", "").upper()
 
     if not seq:
         raise ValueError("Invalid FASTA: empty sequence")
 
-    if not re.fullmatch("[ATUGCN]+", seq):
-        raise ValueError("Invalid FASTA: illegal characters")
+    if not re.fullmatch(r"[ATUGCN]+", seq):
+        raise ValueError("Invalid FASTA: illegal characters detected")
 
     return seq
 

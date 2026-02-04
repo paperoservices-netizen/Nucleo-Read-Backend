@@ -15,6 +15,8 @@ def main():
     job_id = sys.argv[2]
 
     try:
+        print("🔍 RAW FASTA INPUT:")
+        print(repr(fasta_text))
         result = run_analysis(fasta_text)
     except Exception as e:
         result = {
