@@ -1,6 +1,7 @@
 import re
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 START_CODON="ATG"
 STOP_CODONS={"TAA","TAG","TGA"}
@@ -60,9 +61,11 @@ def draw_gel(length,cuts,out):
     plt.savefig(out,dpi=150)
     plt.close()
 
-def analyze_fasta(fasta,job):
-    dna=parse_fasta(fasta)
+def analyze_fasta(fasta, job):
+    os.makedirs("python-runner/images", exist_ok=True)
+    os.makedirs("python-runner/results", exist_ok=True)
 
+    dna=parse_fasta(fasta)
     gc=(dna.count("G")+dna.count("C"))/len(dna)*100
     rna=dna.replace("T","U")
     comp=dna.translate(str.maketrans("ATGC","TACG"))
