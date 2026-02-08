@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
   run:
@@ -43,7 +41,9 @@ jobs:
         mkdir -p docs/results
         cp python-runner/images/${{ github.event.inputs.job_id }}_gc.png docs/results/
         cp python-runner/images/${{ github.event.inputs.job_id }}_gel.png docs/results/
+        cp python-runner/results/${{ github.event.inputs.job_id }}.json docs/results/
 
+        touch docs/results/index.txt
         echo "${{ github.event.inputs.job_id }} $(date +%s)" >> docs/results/index.txt
 
     # ---------------------------
@@ -53,7 +53,6 @@ jobs:
       run: |
         NOW=$(date +%s)
         TMP="docs/results/index.tmp"
-        touch docs/results/index.txt
         > $TMP
 
         while read JOB TS; do
@@ -62,6 +61,7 @@ jobs:
             echo "Deleting expired $JOB"
             rm -f docs/results/${JOB}_gc.png
             rm -f docs/results/${JOB}_gel.png
+            rm -f docs/results/${JOB}.json
           else
             echo "$JOB $TS" >> $TMP
           fi
@@ -70,26 +70,12 @@ jobs:
         mv $TMP docs/results/index.txt
 
     # ---------------------------
-    # Commit Pages + Results
+    # Commit to GitHub Pages
     # ---------------------------
     - name: Commit outputs
       run: |
         git config user.name github-actions
         git config user.email actions@github.com
-        git add python-runner/results docs
-        git commit -m "Nucleoread ${{ github.event.inputs.job_id }}" || true
+        git add docs
+        git commit -m "Publish ${{ github.event.inputs.job_id }}" || true
         git push
-
-    # ---------------------------
-    # Deploy GitHub Pages
-    # ---------------------------
-    - name: Configure Pages
-      uses: actions/configure-pages@v5
-
-    - name: Upload Pages
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: docs
-
-    - name: Deploy Pages
-      uses: actions/deploy-pages@v4
