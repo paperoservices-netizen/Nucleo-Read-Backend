@@ -27,20 +27,13 @@ jobs:
     - name: Install deps
       run: pip install -r requirements.txt
 
-    - name: Run Nucleoread
+    - name: Run analysis
       run: |
         python python-runner/run_job.py \
           python-runner/input/${{ github.event.inputs.job_id }}.fasta \
           ${{ github.event.inputs.job_id }}
 
-    - name: Verify outputs
-      run: |
-        echo "Results:"
-        ls python-runner/results
-        echo "Images:"
-        ls python-runner/images
-
-    - name: Commit outputs
+    - name: Commit results
       run: |
         git config user.name github-actions
         git config user.email actions@github.com
