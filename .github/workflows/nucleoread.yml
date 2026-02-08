@@ -14,15 +14,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - uses: actions/setup-python@v5
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    - run: pip install -r requirements.txt
+    - name: Install deps
+      run: pip install -r requirements.txt
 
     - name: Run Nucleoread
       run: |
@@ -30,7 +33,14 @@ jobs:
           python-runner/input/${{ github.event.inputs.job_id }}.fasta \
           ${{ github.event.inputs.job_id }}
 
-    - name: Commit results and images
+    - name: Verify outputs
+      run: |
+        echo "Results:"
+        ls python-runner/results
+        echo "Images:"
+        ls python-runner/images
+
+    - name: Commit outputs
       run: |
         git config user.name github-actions
         git config user.email actions@github.com
