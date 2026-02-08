@@ -6,31 +6,39 @@ on:
       job_id:
         required: true
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   run:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repo
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - uses: actions/setup-python@v5
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    - run: pip install -r requirements.txt
+    - name: Install dependencies
+      run: pip install -r requirements.txt
 
-    - name: Run job
+    - name: Run Nucleoread
       run: |
         python python-runner/run_job.py \
           python-runner/input/${{ github.event.inputs.job_id }}.fasta \
           ${{ github.event.inputs.job_id }}
 
-    # ------------------------------
-    # Copy outputs to GitHub Pages
-    # ------------------------------
-    - name: Publish images to GitHub Pages
+    # ---------------------------
+    # Prepare GitHub Pages output
+    # ---------------------------
+    - name: Prepare Pages folder
       run: |
         mkdir -p docs/results
         cp python-runner/images/${{ github.event.inputs.job_id }}_gc.png docs/results/
@@ -38,38 +46,50 @@ jobs:
 
         echo "${{ github.event.inputs.job_id }} $(date +%s)" >> docs/results/index.txt
 
-    # ------------------------------
-    # Cleanup files older than 24h
-    # ------------------------------
-    - name: Delete expired images
+    # ---------------------------
+    # Cleanup expired (24h)
+    # ---------------------------
+    - name: Cleanup old images
       run: |
         NOW=$(date +%s)
         TMP="docs/results/index.tmp"
+        touch docs/results/index.txt
         > $TMP
 
-        while read line; do
-          JOB=$(echo $line | cut -d' ' -f1)
-          TS=$(echo $line | cut -d' ' -f2)
+        while read JOB TS; do
           AGE=$((NOW - TS))
-
           if [ "$AGE" -gt 86400 ]; then
             echo "Deleting expired $JOB"
             rm -f docs/results/${JOB}_gc.png
             rm -f docs/results/${JOB}_gel.png
           else
-            echo "$line" >> $TMP
+            echo "$JOB $TS" >> $TMP
           fi
         done < docs/results/index.txt
 
         mv $TMP docs/results/index.txt
 
-    # ------------------------------
-    # Commit to Pages
-    # ------------------------------
-    - name: Commit GitHub Pages
+    # ---------------------------
+    # Commit Pages + Results
+    # ---------------------------
+    - name: Commit outputs
       run: |
         git config user.name github-actions
         git config user.email actions@github.com
-        git add docs
-        git commit -m "Publish job ${{ github.event.inputs.job_id }}" || true
+        git add python-runner/results docs
+        git commit -m "Nucleoread ${{ github.event.inputs.job_id }}" || true
         git push
+
+    # ---------------------------
+    # Deploy GitHub Pages
+    # ---------------------------
+    - name: Configure Pages
+      uses: actions/configure-pages@v5
+
+    - name: Upload Pages
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: docs
+
+    - name: Deploy Pages
+      uses: actions/deploy-pages@v4
