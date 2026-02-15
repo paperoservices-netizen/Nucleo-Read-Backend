@@ -1,5 +1,7 @@
-import sys, json
+# python-runner/run_job.py
+import sys, json, os
 from robio_engine import analyze_fasta
+
 
 fasta_path = sys.argv[1]
 job = sys.argv[2]
