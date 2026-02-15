@@ -1,15 +1,15 @@
 import sys, json
 from robio_engine import analyze_fasta
 
-fasta_path=sys.argv[1]
-job=sys.argv[2]
+fasta_path = sys.argv[1]
+job = sys.argv[2]
 
 with open(fasta_path) as f:
-    fasta=f.read()
+    fasta = f.read()
 
-print("🔬 Processing job",job)
+print("🔬 Processing job", job)
+result = analyze_fasta(fasta, job)
 
-result=analyze_fasta(fasta,job)
-
-with open(f"python-runner/results/{job}.json","w") as f:
-    json.dump(result,f,indent=2)
+os.makedirs("python-runner/results", exist_ok=True)
+with open(f"python-runner/results/{job}.json", "w") as f:
+    json.dump(result, f, indent=2)
