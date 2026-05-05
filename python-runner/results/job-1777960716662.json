@@ -1,0 +1,38 @@
+{
+  "length": 139,
+  "gc": 53.96,
+  "at": 46.04,
+  "ambiguous": 0,
+  "rna": "AUGCGUACGUUAGCUAGCUAGCUAGCUAAGCGGCGUACGUGCCCGAUAGAGAGCUUACGGAUCGGCUAGCUAGCUGACUGACUGACUGACGGCACAGAUACAGUGUACACGAUGCCCGAUCUAGUCAACCGGACUACGA",
+  "complement": "TACGCATGCAATCGATCGATCGATCGATTCGCCGCATGCACGGGCTATCTCTCGAATGCCTAGCCGATCGATCGACTGACTGACTGACTGCCGTGTCTATGTCACATGTGCTACGGGCTAGATCAGTTGGCCTGATGCT",
+  "reverse_complement": "TCGTAGTCCGGTTGACTAGATCGGGCATCGTGTACACTGTATCTGTGCCGTCAGTCAGTCAGTCAGCTAGCTAGCCGATCCGTAAGCTCTCTATCGGGCACGTACGCCGCTTAGCTAGCTAGCTAGCTAACGTACGCAT",
+  "best_orf": {
+    "frame": 1,
+    "start": 0,
+    "end": 21,
+    "length": 21,
+    "strand": "Sense"
+  },
+  "protein": "MRTLAS*",
+  "primers": {
+    "fwd": "N/A",
+    "rev": "N/A",
+    "fwd_tm": 0,
+    "rev_tm": 0
+  },
+  "restriction_sites": [
+    {
+      "name": "AluI",
+      "site": "AGCT",
+      "positions": [
+        12,
+        16,
+        20,
+        24,
+        52,
+        68,
+        72
+      ]
+    }
+  ]
+}
